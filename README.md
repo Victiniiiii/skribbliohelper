@@ -1,4 +1,4 @@
-#skribbliohelper
+# skribbliohelper
 
 Currently, the code opens a firefox window where it checks the letters of the answers in skribbl.io, and prints it inside a div class in the page and inside the python console
 
