@@ -3,18 +3,32 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 import time
 
+font_size = "20px"
+font_size2 = "40px"
+font_color = "white"
+final_words = ""
+last_printed_hints = ""
+last_printed_word_lengths = ""
+closest_words = []
+word_dataset = []
+with open("output.txt", "r") as file:
+    for line in file:
+        word, _ = line.strip().split(',', 1)
+        word_dataset.append(word)
+
 
 def open_skribbl_window():
     skribbl_url = 'https://skribbl.io/'
     options = Options()
     options.headless = True
     driver = webdriver.Firefox(options=options)
+    driver.maximize_window()
     driver.get(skribbl_url)
     time.sleep(5)
     return driver
 
 
-def get_skribbl_hints(driver, last_hint):
+def get_skribbl_hints(driver):
     hint_elements = driver.find_elements(By.CLASS_NAME, 'hint')
     hints = []
 
@@ -38,19 +52,28 @@ def get_word_lengths(driver):
     for word_length_element in word_length_elements:
         word_length = word_length_element.text
         word_lengths += word_length + " "
-
     return word_lengths.strip()
 
 
-final_words = ""
-last_printed_hints = ""
-last_printed_word_lengths = ""
+def suggest_closest_words(current_word, word_dataset):
+    filtered_words = [word for word in word_dataset if len(word) == len(current_word)]
+    possible_words = []
 
-def print_stuff(hints, word_lengths, result_string):
+    for word in filtered_words:
+        match = True
+        for char1, char2 in zip(current_word, word):
+            if char1 != '_' and char1 != char2:
+                match = False
+                break
+        if match:
+            possible_words.append(word)
+    return possible_words
+
+
+def print_stuff(hints, word_lengths, result_string, word_dataset):
     global final_words, last_printed_hints, last_printed_word_lengths
 
     if hints != last_printed_hints or word_lengths != last_printed_word_lengths and word_lengths != '':
-
         if "_" not in result_string and not result_string.isspace():
             final_words = result_string
 
@@ -62,11 +85,26 @@ def print_stuff(hints, word_lengths, result_string):
                     with open("output.txt", "a") as file:
                         file.write(string_to_write)
                 else:
-                    print("Word already in database")
+                    print(final_words, "already in database")
             final_words = ""
 
         elif hints and word_lengths != "":
             print("Skribbl.io Hints:", result_string, "Word Length:", word_lengths)
+            closest_words = suggest_closest_words(result_string, word_dataset)
+            if len(closest_words) > 20:
+                print("Possible Word Count:", len(closest_words))
+                console_output = f'Possible Word Count: {len(closest_words)}'
+                script = f'document.querySelector(".ad-1").style.fontSize = "{font_size2}";'
+                script += f'document.querySelector(".ad-1").style.color = "{font_color}";'
+                script += f'document.querySelector(".ad-1").innerText = `{console_output}\\n`;'
+                driver.execute_script(script)
+            else:
+                print("Possible Words:", ", ".join(closest_words))
+                console_output = f'Possible Words: {", ".join(closest_words)}'
+                script = f'document.querySelector(".ad-1").style.fontSize = "{font_size}";'
+                script += f'document.querySelector(".ad-1").style.color = "{font_color}";'
+                script += f'document.querySelector(".ad-1").innerText = `{console_output}\\n`;'
+                driver.execute_script(script)
 
         last_printed_hints = hints
         last_printed_word_lengths = word_lengths
@@ -74,10 +112,8 @@ def print_stuff(hints, word_lengths, result_string):
 
 if __name__ == "__main__":
     driver = open_skribbl_window()
-    last_hint = []
-
     while True:
-        last_hint, result_string = get_skribbl_hints(driver, last_hint)
+        hints, result_string = get_skribbl_hints(driver)
         word_lengths = get_word_lengths(driver)
-        print_stuff(last_hint, word_lengths, result_string)
-        time.sleep(2)
+        print_stuff(hints, word_lengths, result_string, word_dataset)
+        time.sleep(1)
